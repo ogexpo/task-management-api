@@ -1,11 +1,24 @@
-const express = require("express");
-const app = express();
-const port = 3000;
+require("dotenv").config();
 
-app.get('/', (req, res) => {
-  res.send('Hello World!');
+const express = require("express");
+const connectDB = require("./config/db");
+
+const app = express();
+
+const userRoutes = require("./routes/userRoutes");
+const taskRoutes = require("./routes/taskRoutes");
+
+app.use(express.json());
+
+connectDB();
+
+app.use("/api/users", userRoutes);
+app.use("/api/tasks", taskRoutes);
+
+app.get("/", (req, res) => {
+  res.send("Hello World");
 });
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+app.listen(3000, () => {
+  console.log("Server running on port 3000");
 });
