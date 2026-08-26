@@ -17,29 +17,51 @@ const createTask = async (req, res) => {
       message: "Task created successfully",
       task,
     });
-  }  catch (error) {
-  if (error.name === "ValidationError") {
-    return res.status(400).json({
-      message: "Validation error",
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Validation error",
+        error: error.message,
+      });
+    }
+
+    res.status(500).json({
+      message: "Failed to create task",
       error: error.message,
     });
   }
-}
-  res.status(500).json({
-    message: "Failed to create task",
-    error: error.message,
-  });
-  };
+};
 
 const getTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({
+    const filter = {
       user: req.user.userId,
-    }).sort({ createdAt: -1 });
+    };
+
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const skip = (page - 1) * limit;
+
+    const tasks = await Task.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const totalTasks = await Task.countDocuments(filter);
 
     res.status(200).json({
       message: "Tasks fetched successfully",
       tasks,
+      pagination: {
+        page,
+        limit,
+        totalTasks,
+        totalPages: Math.ceil(totalTasks / limit),
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -65,19 +87,21 @@ const getTask = async (req, res) => {
     res.status(200).json({
       message: "Task fetched successfully",
       task,
-    })
+    });
   } catch (error) {
-  if (error.name === "CastError") {
-    return res.status(400).json({
-      message: "Invalid task ID",
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid task ID",
+      });
+    }
+
+    res.status(500).json({
+      message: "Failed to fetch task",
+      error: error.message,
     });
   }
+};
 
-  res.status(500).json({
-    message: "Failed to fetch task",
-    error: error.message,
-  });
-  }}
 const updateTask = async (req, res) => {
   try {
     const task = await Task.findOneAndUpdate(
