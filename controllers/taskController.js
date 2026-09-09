@@ -1,6 +1,6 @@
 const Task = require("../models/Task");
 
-const createTask = async (req, res) => {
+const createTask = async (req, res, next) => {
   try {
     const { title, description, status, priority, dueDate } = req.body;
 
@@ -18,21 +18,11 @@ const createTask = async (req, res) => {
       task,
     });
   } catch (error) {
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        message: "Validation error",
-        error: error.message,
-      });
-    }
-
-    res.status(500).json({
-      message: "Failed to create task",
-      error: error.message,
-    });
+    next(error);
   }
 };
 
-const getTasks = async (req, res) => {
+const getTasks = async (req, res, next) => {
   try {
     const filter = {
       user: req.user.userId,
@@ -64,14 +54,11 @@ const getTasks = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({
-      message: "Failed to fetch tasks",
-      error: error.message,
-    });
+    next(error);
   }
 };
 
-const getTask = async (req, res) => {
+const getTask = async (req, res, next) => {
   try {
     const task = await Task.findOne({
       _id: req.params.id,
@@ -89,27 +76,28 @@ const getTask = async (req, res) => {
       task,
     });
   } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        message: "Invalid task ID",
-      });
-    }
-
-    res.status(500).json({
-      message: "Failed to fetch task",
-      error: error.message,
-    });
+    next(error);
   }
 };
 
-const updateTask = async (req, res) => {
+const updateTask = async (req, res, next) => {
   try {
+    const { title, description, status, priority, dueDate } = req.body;
+
+    const updates = {
+      title,
+      description,
+      status,
+      priority,
+      dueDate,
+    };
+
     const task = await Task.findOneAndUpdate(
       {
         _id: req.params.id,
         user: req.user.userId,
       },
-      req.body,
+      updates,
       {
         new: true,
         runValidators: true,
@@ -127,14 +115,11 @@ const updateTask = async (req, res) => {
       task,
     });
   } catch (error) {
-    res.status(500).json({
-      message: "Failed to update task",
-      error: error.message,
-    });
+    next(error);
   }
 };
 
-const deleteTask = async (req, res) => {
+const deleteTask = async (req, res, next) => {
   try {
     const task = await Task.findOneAndDelete({
       _id: req.params.id,
@@ -151,10 +136,7 @@ const deleteTask = async (req, res) => {
       message: "Task deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({
-      message: "Failed to delete task",
-      error: error.message,
-    });
+    next(error);
   }
 };
 

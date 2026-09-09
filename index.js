@@ -8,6 +8,8 @@ const app = express();
 const userRoutes = require("./routes/userRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const projectRoutes = require("./routes/projectRoutes");
+const errorHandler = require("./middleware/errorMiddleware");
+
 
 app.use(express.json());
 
@@ -17,6 +19,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/projects", projectRoutes);
 
+app.use(errorHandler);
 app.get("/", (req, res) => {
   res.send("Hello World");
 });

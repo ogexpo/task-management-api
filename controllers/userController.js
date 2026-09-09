@@ -2,7 +2,7 @@ const User = require("../models/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const getUsers = async (req, res) => {
+const getUsers = async (req, res, next) => {
     try {
         const users = await User.find();
 
@@ -11,14 +11,11 @@ const getUsers = async (req, res) => {
             users: users
         });
     } catch (error) {
-        res.status(500).json({
-            message: "Failed to fetch users",
-            error: error.message
-        });
+        next(error);
     }
 };
 
-const createUser = async (req, res) => {
+const createUser = async (req, res, next) => {
     try {
         const { name, email, password } = req.body;
 
@@ -54,14 +51,11 @@ const createUser = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(500).json({
-            message: "Server error",
-            error: error.message
-        });
+        next(error);
     }
 };
 
-const loginUser = async (req, res) => {
+const loginUser = async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
@@ -111,10 +105,7 @@ const loginUser = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(500).json({
-            message: "Server error",
-            error: error.message
-        });
+        next(error);
     }
 };
 
