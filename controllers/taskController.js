@@ -1,28 +1,36 @@
+
 const Task = require("../models/Task");
-const Project = require("../models/Project");
+const Project = require("../models/project");
 const mongoose = require("mongoose");
 
 const createTask = async (req, res, next) => {
   try {
     const { title, description, status, priority, dueDate, project } = req.body;
-    if (!mongoose.isValidObjectId(project)) {
-  return res.status(400).json({
-    message: "Invalid project ID",
-  });
-}
-   const projectData = await Project.findById(project);
 
-if (!projectData) {
-  return res.status(404).json({
-    message: "Project not found",
-  });
-}
+    if (project && !mongoose.isValidObjectId(project)) {
+      return res.status(400).json({
+        message: "Invalid project ID",
+      });
+    }
 
-if (projectData.user.toString() !== req.user.userId) {
-  return res.status(403).json({
-    message: "You do not have access to this project",
-  });
-}
+    if (project) {
+      const projectData = await Project.findById(project);
+
+      if (!projectData) {
+        return res.status(404).json({
+          message: "Project not found",
+        });
+      }
+
+      if (projectData.user.toString() !== req.user.userId) {
+        return res.status(403).json({
+          message: "You do not have access to this project",
+        });
+      }
+    }
+
+    console.log("Reached Task.create");
+
     const task = await Task.create({
       title,
       description,
@@ -102,7 +110,29 @@ const getTask = async (req, res, next) => {
 
 const updateTask = async (req, res, next) => {
   try {
-    const { title, description, status, priority, dueDate } = req.body;
+    const { title, description, status, priority, dueDate, project } = req.body;
+
+    if (project && !mongoose.isValidObjectId(project)) {
+      return res.status(400).json({
+        message: "Invalid project ID",
+      });
+    }
+
+    if (project) {
+      const projectData = await Project.findById(project);
+
+      if (!projectData) {
+        return res.status(404).json({
+          message: "Project not found",
+        });
+      }
+
+      if (projectData.user.toString() !== req.user.userId) {
+        return res.status(403).json({
+          message: "You do not have access to this project",
+        });
+      }
+    }
 
     const updates = {
       title,
@@ -110,6 +140,7 @@ const updateTask = async (req, res, next) => {
       status,
       priority,
       dueDate,
+      project,
     };
 
     const task = await Task.findOneAndUpdate(
@@ -167,3 +198,4 @@ module.exports = {
   updateTask,
   deleteTask,
 };
+
