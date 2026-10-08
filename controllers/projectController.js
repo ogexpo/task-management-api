@@ -70,16 +70,18 @@ const updateProject = async (req, res, next) => {
     try {
         const { name, description, status } = req.body;
 
+        const updates = {};
+
+        if (name !== undefined) updates.name = name;
+        if (description !== undefined) updates.description = description;
+        if (status !== undefined) updates.status = status;
+
         const project = await Project.findOneAndUpdate(
             {
                 _id: req.params.id,
                 user: req.user.userId
             },
-            {
-                name,
-                description,
-                status
-            },
+            updates,
             {
                 new: true,
                 runValidators: true

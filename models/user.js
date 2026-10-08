@@ -17,10 +17,10 @@ const userSchema = new mongoose.Schema({
         required: true
     },
     role: {
-    type: String,
-    enum: ["user", "admin"],
-    default: "user"
-}
+        type: String,
+        enum: ["user", "admin"],
+        default: "user"
+    }
 });
 
 const User = mongoose.model("User", userSchema);

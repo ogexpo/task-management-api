@@ -7,11 +7,12 @@ const taskSchema = new mongoose.Schema(
       required: true,
       trim: true,
       minlength: 3,
-  maxlength: 100,
+      maxlength: 100,
     },
 
     description: {
       type: String,
+       trim: true,
       default: "",
     },
 
@@ -37,9 +38,9 @@ const taskSchema = new mongoose.Schema(
       required: true,
     },
     project: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Project",
-},
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project",
+    },
   },
   {
     timestamps: true,

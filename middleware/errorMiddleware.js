@@ -6,6 +6,12 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
+    if (err.name === "ValidationError") {
+        return res.status(400).json({
+            message: err.message
+        });
+    }
+
     if (err.name === "JsonWebTokenError") {
         return res.status(401).json({
             message: "Not authorized, invalid token"
@@ -15,6 +21,12 @@ const errorHandler = (err, req, res, next) => {
     if (err.name === "TokenExpiredError") {
         return res.status(401).json({
             message: "Not authorized, token expired"
+        });
+    }
+
+    if (err.code === 11000) {
+        return res.status(409).json({
+            message: "Duplicate value already exists"
         });
     }
 

@@ -1,10 +1,10 @@
-const User = require("../models/userModel");
+const User = require("../models/user");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const getUsers = async (req, res, next) => {
     try {
-        const users = await User.find();
+        const users = await User.find().select("-password");
 
         res.json({
             message: "Users fetched successfully",
@@ -87,7 +87,7 @@ const loginUser = async (req, res, next) => {
         const token = jwt.sign(
             {
                 userId: user._id,
-                 role: user.role
+                role: user.role
             },
             process.env.JWT_SECRET,
             {

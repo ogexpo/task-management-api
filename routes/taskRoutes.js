@@ -18,7 +18,7 @@ router.get("/", authMiddleware, getTasks);
 
 router.get("/:id", authMiddleware, getTask);
 
-router.put("/:id", authMiddleware, updateTask);
+router.patch("/:id", authMiddleware, updateTask);
 
 router.delete("/:id", authMiddleware, deleteTask);
 
