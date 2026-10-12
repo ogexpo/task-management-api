@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 
 const express = require("express");
@@ -16,12 +15,19 @@ const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
-    "http://localhost:5137"
+    "http://localhost:5137",
+    "https://task-management-api-a33u.vercel.app"
 ];
 
 app.use(
     cors({
-        origin: allowedOrigins,
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error("Not allowed by CORS"));
+        },
         methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization"]
     })
@@ -57,7 +63,9 @@ const startServer = async () => {
             console.log(`Server running on port ${PORT}`);
         });
     } catch (error) {
-        console.error("Application startup failed. Check database configuration.");
+        console.error(
+            "Application startup failed. Check database configuration."
+        );
         process.exit(1);
     }
 };
