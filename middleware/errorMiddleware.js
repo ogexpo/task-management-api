@@ -1,4 +1,8 @@
+
 const errorHandler = (err, req, res, next) => {
+    if (res.headersSent) {
+        return next(err);
+    }
 
     if (err.name === "CastError") {
         return res.status(400).json({
@@ -8,19 +12,17 @@ const errorHandler = (err, req, res, next) => {
 
     if (err.name === "ValidationError") {
         return res.status(400).json({
-            message: err.message
+            message: "Validation failed. Please check your input."
         });
     }
 
-    if (err.name === "JsonWebTokenError") {
+    if (
+        err.name === "JsonWebTokenError" ||
+        err.name === "TokenExpiredError" ||
+        err.name === "NotBeforeError"
+    ) {
         return res.status(401).json({
-            message: "Not authorized, invalid token"
-        });
-    }
-
-    if (err.name === "TokenExpiredError") {
-        return res.status(401).json({
-            message: "Not authorized, token expired"
+            message: "Invalid or expired authentication token"
         });
     }
 
@@ -30,8 +32,10 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    res.status(500).json({
-        message: err.message || "Something went wrong"
+    console.error("Unhandled error:", err);
+
+    return res.status(500).json({
+        message: "Internal server error"
     });
 };
 

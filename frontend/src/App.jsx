@@ -25,7 +25,12 @@ import {
   updateTask,
   deleteTask,
 } from "./api/tasks";
-import { getProjects, createProject } from "./api/project";
+import {
+  getProjects,
+  createProject,
+  updateProject,
+  deleteProject,
+} from "./api/project";
 
 import "./App.css";
 
@@ -51,7 +56,6 @@ const projectStatusLabels = {
 export default function App() {
   const [isSignup, setIsSignup] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -88,17 +92,19 @@ export default function App() {
 
   const [projects, setProjects] = useState([]);
   const [projectName, setProjectName] = useState("");
+  const [projectStatus, setProjectStatus] = useState("planning");
   const [projectLoading, setProjectLoading] = useState(false);
   const [projectError, setProjectError] = useState("");
   const [projectSuccess, setProjectSuccess] = useState("");
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [savingProject, setSavingProject] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState(null);
 
   const token = sessionStorage.getItem("token");
 
-  // Load tasks when the user signs in.
+  // Load tasks after login.
   useEffect(() => {
-    if (!user) return;
+    if (!user) return undefined;
 
     let cancelled = false;
 
@@ -112,16 +118,14 @@ export default function App() {
         );
 
         if (!cancelled) {
-          setTasks(data.tasks || []);
+          setTasks(Array.isArray(data?.tasks) ? data.tasks : []);
         }
       } catch (err) {
         if (!cancelled) {
           setTaskError(err.message || "Could not load tasks.");
         }
       } finally {
-        if (!cancelled) {
-          setTasksLoading(false);
-        }
+        if (!cancelled) setTasksLoading(false);
       }
     }
 
@@ -132,9 +136,9 @@ export default function App() {
     };
   }, [user]);
 
-  // Load projects whenever the Projects page opens.
+  // Load projects when the Projects page opens.
   useEffect(() => {
-    if (!user || activePage !== "projects") return;
+    if (!user || activePage !== "projects") return undefined;
 
     let cancelled = false;
 
@@ -149,15 +153,13 @@ export default function App() {
 
         const projectList = Array.isArray(data)
           ? data
-          : Array.isArray(data.projects)
+          : Array.isArray(data?.projects)
             ? data.projects
-            : Array.isArray(data.data)
+            : Array.isArray(data?.data)
               ? data.data
               : [];
 
-        if (!cancelled) {
-          setProjects(projectList);
-        }
+        if (!cancelled) setProjects(projectList);
       } catch (err) {
         if (!cancelled) {
           setProjectError(
@@ -165,9 +167,7 @@ export default function App() {
           );
         }
       } finally {
-        if (!cancelled) {
-          setProjectLoading(false);
-        }
+        if (!cancelled) setProjectLoading(false);
       }
     }
 
@@ -257,7 +257,14 @@ export default function App() {
     setTaskSuccess("");
     setProjectError("");
     setProjectSuccess("");
-    setFormData({ name: "", email: "", password: "" });
+    setShowTaskForm(false);
+    setShowProjectForm(false);
+    setEditingProjectId(null);
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+    });
   }
 
   function switchMode() {
@@ -275,7 +282,8 @@ export default function App() {
       const data = await getTasks(
         sessionStorage.getItem("token")
       );
-      setTasks(data.tasks || []);
+
+      setTasks(Array.isArray(data?.tasks) ? data.tasks : []);
     } catch (err) {
       setTaskError(err.message || "Could not load tasks.");
     } finally {
@@ -366,7 +374,6 @@ export default function App() {
     }
   }
 
-  // Create a new project through the backend API.
   async function handleCreateProject(event) {
     event.preventDefault();
 
@@ -382,35 +389,81 @@ export default function App() {
     setSavingProject(true);
 
     try {
-      await createProject(
-        sessionStorage.getItem("token"),
-        { name }
-      );
+      if (editingProjectId) {
+        await updateProject(token, editingProjectId, {
+          name,
+          status: projectStatus,
+        });
+
+        setProjectSuccess("Project updated successfully!");
+      } else {
+        await createProject(token, {
+          name,
+          status: projectStatus,
+        });
+
+        setProjectSuccess("Project created successfully!");
+      }
 
       setProjectName("");
+      setProjectStatus("planning");
+      setEditingProjectId(null);
       setShowProjectForm(false);
-      setProjectSuccess("Project created successfully!");
 
-      // Reload the project list from the backend.
-      const data = await getProjects(
-        sessionStorage.getItem("token")
-      );
+      const data = await getProjects(token);
 
       const projectList = Array.isArray(data)
         ? data
-        : Array.isArray(data.projects)
+        : Array.isArray(data?.projects)
           ? data.projects
-          : Array.isArray(data.data)
+          : Array.isArray(data?.data)
             ? data.data
             : [];
 
       setProjects(projectList);
     } catch (err) {
-      setProjectError(
-        err.message || "Could not create project."
-      );
+      setProjectError(err.message || "Could not save project.");
     } finally {
       setSavingProject(false);
+    }
+  }
+
+  function handleEditProject(project) {
+    setEditingProjectId(project._id);
+    setProjectName(project.name || "");
+    setProjectStatus(project.status || "planning");
+    setProjectError("");
+    setProjectSuccess("");
+    setShowProjectForm(true);
+  }
+
+  async function handleDeleteProject(projectId) {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this project?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setProjectError("");
+      setProjectSuccess("");
+
+      await deleteProject(token, projectId);
+
+      setProjects((current) =>
+        current.filter((project) => project._id !== projectId)
+      );
+
+      if (editingProjectId === projectId) {
+        setEditingProjectId(null);
+        setProjectName("");
+        setProjectStatus("planning");
+        setShowProjectForm(false);
+      }
+
+      setProjectSuccess("Project deleted successfully.");
+    } catch (err) {
+      setProjectError(err.message || "Failed to delete project.");
     }
   }
 
@@ -418,12 +471,12 @@ export default function App() {
     (task) => task.status === "completed"
   ).length;
 
-  const pendingCount = tasks.filter(
-    (task) => task.status !== "completed"
-  ).length;
-
   const activeProjectCount = projects.filter(
     (project) => project.status === "active"
+  ).length;
+
+  const completedProjectCount = projects.filter(
+    (project) => project.status === "completed"
   ).length;
 
   if (user) {
@@ -441,8 +494,9 @@ export default function App() {
 
           <nav className="nav-menu">
             <button
-              className={`nav-item ${activePage === "dashboard" ? "active" : ""
-                }`}
+              className={`nav-item ${
+                activePage === "dashboard" ? "active" : ""
+              }`}
               type="button"
               onClick={() => setActivePage("dashboard")}
             >
@@ -451,8 +505,9 @@ export default function App() {
             </button>
 
             <button
-              className={`nav-item ${activePage === "tasks" ? "active" : ""
-                }`}
+              className={`nav-item ${
+                activePage === "tasks" ? "active" : ""
+              }`}
               type="button"
               onClick={() => setActivePage("tasks")}
             >
@@ -461,8 +516,9 @@ export default function App() {
             </button>
 
             <button
-              className={`nav-item ${activePage === "projects" ? "active" : ""
-                }`}
+              className={`nav-item ${
+                activePage === "projects" ? "active" : ""
+              }`}
               type="button"
               onClick={() => {
                 setActivePage("projects");
@@ -524,9 +580,7 @@ export default function App() {
             <>
               <section className="welcome-card">
                 <div>
-                  <p className="eyebrow">
-                    YOUR SPACE. YOUR PACE.
-                  </p>
+                  <p className="eyebrow">YOUR SPACE. YOUR PACE.</p>
                   <h1>Welcome back, {user.name}!</h1>
                   <p>
                     You're signed in. Let's make today productive.
@@ -856,7 +910,15 @@ export default function App() {
                   className="primary-action"
                   type="button"
                   onClick={() => {
-                    setShowProjectForm((current) => !current);
+                    if (showProjectForm) {
+                      setShowProjectForm(false);
+                      setEditingProjectId(null);
+                      setProjectName("");
+                      setProjectStatus("planning");
+                    } else {
+                      setShowProjectForm(true);
+                    }
+
                     setProjectError("");
                     setProjectSuccess("");
                   }}
@@ -893,11 +955,7 @@ export default function App() {
                   </div>
                   <h3>Completed projects</h3>
                   <strong className="task-stat">
-                    {
-                      projects.filter(
-                        (project) => project.status === "completed"
-                      ).length
-                    }
+                    {completedProjectCount}
                   </strong>
                 </div>
               </div>
@@ -925,10 +983,13 @@ export default function App() {
                   className="task-form project-form"
                   onSubmit={handleCreateProject}
                 >
-                  <h3>Create a new project</h3>
-                  <p>
-                    Give your project a clear, memorable name.
-                  </p>
+                  <h3>
+                    {editingProjectId
+                      ? "Edit project"
+                      : "Create a new project"}
+                  </h3>
+
+                  <p>Give your project a clear, memorable name.</p>
 
                   <label className="field">
                     <span>Project name</span>
@@ -947,6 +1008,21 @@ export default function App() {
                     />
                   </label>
 
+                  <label className="field">
+                    <span>Project status</span>
+                    <select
+                      className="task-input"
+                      value={projectStatus}
+                      onChange={(event) =>
+                        setProjectStatus(event.target.value)
+                      }
+                    >
+                      <option value="planning">Planning</option>
+                      <option value="active">Active</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </label>
+
                   <button
                     className="primary-action"
                     type="submit"
@@ -954,8 +1030,10 @@ export default function App() {
                   >
                     <Plus size={17} />
                     {savingProject
-                      ? "Creating project..."
-                      : "Create project"}
+                      ? "Saving project..."
+                      : editingProjectId
+                        ? "Update project"
+                        : "Create project"}
                   </button>
                 </form>
               )}
@@ -986,8 +1064,8 @@ export default function App() {
                   <FolderKanban size={30} />
                   <h3>No projects yet</h3>
                   <p>
-                    Create your first project and start organizing
-                    your work.
+                    Create your first project and start organizing your
+                    work.
                   </p>
 
                   {!showProjectForm && (
@@ -1018,18 +1096,38 @@ export default function App() {
                         Created{" "}
                         {project.createdAt
                           ? new Date(
-                            project.createdAt
-                          ).toLocaleDateString()
+                              project.createdAt
+                            ).toLocaleDateString()
                           : "recently"}
                       </p>
 
                       <span
-                        className={`status-badge status-${project.status || "planning"}`}
+                        className={`status-badge status-${
+                          project.status || "planning"
+                        }`}
                       >
                         {projectStatusLabels[project.status] ||
                           project.status ||
                           "Planning"}
                       </span>
+
+                      <div className="project-actions">
+                        <button
+                          type="button"
+                          onClick={() => handleEditProject(project)}
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDeleteProject(project._id)
+                          }
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -1049,20 +1147,28 @@ export default function App() {
         </div>
 
         <p className="eyebrow">WORKSPACE, REIMAGINED</p>
+
         <h1>
           Make space for
           <br />
           <span>great work.</span>
         </h1>
+
         <p className="brand-description">
           Organize your tasks, manage projects, and keep your momentum
           going.
         </p>
 
         <div className="feature-list">
-          <p><CheckCircle2 size={18} /> One place for all your work</p>
-          <p><CheckCircle2 size={18} /> Projects that stay on track</p>
-          <p><CheckCircle2 size={18} /> Progress you can actually see</p>
+          <p>
+            <CheckCircle2 size={18} /> One place for all your work
+          </p>
+          <p>
+            <CheckCircle2 size={18} /> Projects that stay on track
+          </p>
+          <p>
+            <CheckCircle2 size={18} /> Progress you can actually see
+          </p>
         </div>
 
         <div className="brand-decoration decoration-one" />
@@ -1080,11 +1186,13 @@ export default function App() {
             <p className="eyebrow">
               {isSignup ? "GET STARTED" : "WELCOME BACK"}
             </p>
+
             <h2>
               {isSignup
                 ? "Create your account"
                 : "Sign in to TaskFlow"}
             </h2>
+
             <p>
               {isSignup
                 ? "Create your workspace and get things moving."
@@ -1111,8 +1219,10 @@ export default function App() {
             {isSignup && (
               <label className="field">
                 <span>Full name</span>
+
                 <div className="input-wrap">
                   <UserRound size={18} />
+
                   <input
                     type="text"
                     name="name"
@@ -1129,8 +1239,10 @@ export default function App() {
 
             <label className="field">
               <span>Email address</span>
+
               <div className="input-wrap">
                 <Mail size={18} />
+
                 <input
                   type="email"
                   name="email"
@@ -1145,8 +1257,10 @@ export default function App() {
 
             <label className="field">
               <span>Password</span>
+
               <div className="input-wrap">
                 <LockKeyhole size={18} />
+
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
@@ -1170,9 +1284,11 @@ export default function App() {
                     setShowPassword((current) => !current)
                   }
                 >
-                  {showPassword
-                    ? <EyeOff size={18} />
-                    : <Eye size={18} />}
+                  {showPassword ? (
+                    <EyeOff size={18} />
+                  ) : (
+                    <Eye size={18} />
+                  )}
                 </button>
               </div>
 
@@ -1193,6 +1309,7 @@ export default function App() {
                 : isSignup
                   ? "Create account"
                   : "Sign in"}
+
               {!loading && <span>→</span>}
             </button>
           </form>
@@ -1201,6 +1318,7 @@ export default function App() {
             {isSignup
               ? "Already have an account?"
               : "New to TaskFlow?"}{" "}
+
             <button
               type="button"
               onClick={switchMode}
@@ -1225,8 +1343,11 @@ function TaskCard({ task, busy, onStatusChange, onDelete }) {
       <div className="task-card-main">
         <div className="task-card-title-row">
           <h3>{task.title}</h3>
+
           <span
-            className={`priority-badge priority-${task.priority || "medium"}`}
+            className={`priority-badge priority-${
+              task.priority || "medium"
+            }`}
           >
             {task.priority || "medium"}
           </span>
@@ -1253,6 +1374,7 @@ function TaskCard({ task, busy, onStatusChange, onDelete }) {
       <div className="task-card-actions">
         <label className="status-control">
           <span className="sr-only">Task status</span>
+
           <select
             value={task.status || "todo"}
             disabled={busy}
